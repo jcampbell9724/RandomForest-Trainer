@@ -3156,6 +3156,7 @@ def infer_problem_type(target: pd.Series) -> str:
 
     if (
         pd.api.types.is_object_dtype(clean_target)
+        or pd.api.types.is_string_dtype(clean_target)
         or isinstance(clean_target.dtype, pd.CategoricalDtype)
         or pd.api.types.is_bool_dtype(clean_target)
     ):
@@ -3558,19 +3559,11 @@ def normalize_feature_dtypes(frame: pd.DataFrame) -> pd.DataFrame:
             lambda value: float(value.toordinal()) if pd.notna(value) else np.nan
         )
 
-        non_null_times = series.dropna()
-        has_time_component = (
-            not non_null_times.empty
-            and (
-                (non_null_times.dt.hour != 0)
-                | (non_null_times.dt.minute != 0)
-                | (non_null_times.dt.second != 0)
-            ).any()
-        )
-        if has_time_component:
-            normalized[f"{column}__hour"] = series.dt.hour.astype("float64")
-            normalized[f"{column}__minute"] = series.dt.minute.astype("float64")
-            normalized[f"{column}__second"] = series.dt.second.astype("float64")
+        # Keep the same schema when a held-out or manual input contains only
+        # midnight timestamps or missing dates. Date-only values use zeros.
+        normalized[f"{column}__hour"] = series.dt.hour.astype("float64")
+        normalized[f"{column}__minute"] = series.dt.minute.astype("float64")
+        normalized[f"{column}__second"] = series.dt.second.astype("float64")
 
     if datetime_columns:
         normalized = normalized.drop(columns=datetime_columns)
